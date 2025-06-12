@@ -1,0 +1,6 @@
+Allergic rhinitis 過敏性鼻炎
+Rhinosinusitis 鼻竇炎
+URI(Upper Respiratory Infection) 上呼吸道感染
+Influenza 流感
+Bronchitis 支氣管炎
+Pneumonia 肺炎
