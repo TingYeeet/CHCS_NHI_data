@@ -6,15 +6,25 @@ from sklearn.feature_selection import mutual_info_regression
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
+from matplotlib.lines import Line2D
 
 # 設定中文字體
 plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'SimHei', 'Microsoft YaHei', 'STHeiti']
 plt.rcParams['axes.unicode_minus'] = False
 
+# 區域顏色對應
+region_color_map = {
+    "高屏": "#AA04AA",        # 紫
+    "中彰投": '#FF0000',      # 紅
+    "雲嘉南": '#FFA500',      # 橘
+    "北北基桃竹苗": '#FFFF00', # 黃
+    "宜花東": "#23B623"       # 綠
+}
+
 # 資料夾設定
 correlation_folder = "lag_corre_month+region"
 case_pm25_folder = "就診千分比對pm2.5(五群)"
-output_plot_folder = "scatter_plots_region_shift+0"
+output_plot_folder = "scatter_plots_region_shift+0&color"
 os.makedirs(output_plot_folder, exist_ok=True)
 
 # 處理每個疾病的相關性 CSV
@@ -51,9 +61,10 @@ for filename in os.listdir(correlation_folder):
         df_shifted["new_year"] = df_shifted["year"] + (df_shifted["new_month"] - 1) // 12
         df_shifted["new_month"] = (df_shifted["new_month"] - 1) % 12 + 1
         df_shifted["new_key"] = df_shifted["region"] + "_" + df_shifted["new_year"].astype(str) + "_" + df_shifted["new_month"].astype(str)
+        df_shifted["region_copy"] = df_shifted["region"]
 
         merged = pd.merge(
-            df_shifted[["PM2.5", "new_key"]],
+            df_shifted[["PM2.5", "new_key", "region_copy"]],
             df[["key", "case_per_capita(‰)"]],
             left_on="new_key",
             right_on="key",
@@ -65,6 +76,7 @@ for filename in os.listdir(correlation_folder):
 
         X = merged["PM2.5"].values.reshape(-1, 1)
         y = merged["case_per_capita(‰)"].values
+        colors = merged["region_copy"].map(region_color_map)
 
         # Mutual Information
         mi = mutual_info_regression(X, y, random_state=0)[0]
@@ -79,11 +91,12 @@ for filename in os.listdir(correlation_folder):
 
         # 繪製散布圖
         plt.figure(figsize=(6, 5))
-        plt.scatter(X, y, alpha=0.6)
+        plt.scatter(X, y, alpha=0.6, c=colors)
         plt.xlabel("PM2.5")
         plt.ylabel("就診人數千分比")
         plt.title(f"{disease_name}：lag={lag} 散布圖")
 
+        # 加上文字說明
         text = (
             f"Pearson: {pearson:.3f}\n"
             f"Spearman: {spearman:.3f}\n"
@@ -101,10 +114,19 @@ for filename in os.listdir(correlation_folder):
             fontsize=10,
             bbox=dict(boxstyle="round", facecolor="white", alpha=0.6)
         )
+
+        # 加上圖例
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='w', label=region, markerfacecolor=color, markersize=8)
+            for region, color in region_color_map.items()
+        ]
+        plt.legend(handles=legend_elements, title="區域")
+
         plt.tight_layout()
 
+        # 儲存圖檔
         plot_filename = f"{disease_name}_spearman_rank{rank}_lag{lag}.png"
         plt.savefig(os.path.join(output_plot_folder, plot_filename), dpi=300)
         plt.close()
 
-print("✅ 所有疾病的相關性散布圖已完成（含 Mutual Info 與多項式 R²）")
+print("✅ 所有疾病的相關性散布圖已完成（含顏色與群集圖例）")
