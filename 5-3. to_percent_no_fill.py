@@ -2,8 +2,8 @@ import pandas as pd
 import os
 
 # 資料夾與路徑設定
-input_folder = "周-呼吸道疾病就醫人數"
-output_folder = "補值後轉發病比(不補值)"
+input_folder = "月-呼吸道疾病就醫人數-移除外島"
+output_folder = "月就醫轉比例"
 pop_csv_path = "./各鄉鎮在保人數分布/total_population_2016_2019.csv"
 
 # 建立輸出資料夾
@@ -28,7 +28,7 @@ for filename in os.listdir(input_folder):
     merged['case_per_capita(‰)'] = (merged['case_c'] / merged['pop_total'] * 1000).round(3)
 
     # 保留指定欄位
-    merged = merged[['ID1_CITY', 'year', 'week', 'case_c', 'case_per_capita(‰)']]
+    merged = merged[['ID1_CITY', 'year', 'month', 'case_c', 'case_per_capita(‰)']]
 
     # 輸出
     output_path = os.path.join(output_folder, filename)
