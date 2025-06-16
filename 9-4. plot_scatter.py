@@ -14,7 +14,7 @@ plt.rcParams['axes.unicode_minus'] = False
 # 資料夾設定
 correlation_folder = "lag_corre_month+region"
 case_pm25_folder = "就診千分比對pm2.5(五群)"
-output_plot_folder = "scatter_plots_region_shift"
+output_plot_folder = "scatter_plots_region_shift+0"
 os.makedirs(output_plot_folder, exist_ok=True)
 
 # 處理每個疾病的相關性 CSV
@@ -40,7 +40,7 @@ for filename in os.listdir(correlation_folder):
     df = df[["region", "year", "month", "case_per_capita(‰)", "PM2.5"]].dropna()
     df["key"] = df["region"] + "_" + df["year"].astype(str) + "_" + df["month"].astype(str)
 
-    for _, row in top5_lags.iterrows():
+    for rank, (_, row) in enumerate(top5_lags.iterrows(), start=1):
         lag = int(row["平移量(月數)"])
         pearson = row["Pearson 係數"]
         spearman = row["Spearman 係數"]
@@ -103,7 +103,7 @@ for filename in os.listdir(correlation_folder):
         )
         plt.tight_layout()
 
-        plot_filename = f"{disease_name}_lag{lag}.png"
+        plot_filename = f"{disease_name}_spearman_rank{rank}_lag{lag}.png"
         plt.savefig(os.path.join(output_plot_folder, plot_filename), dpi=300)
         plt.close()
 
