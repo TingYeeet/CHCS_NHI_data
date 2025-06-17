@@ -7,6 +7,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 from matplotlib.lines import Line2D
+import numpy as np
 
 # 設定中文字體
 plt.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'SimHei', 'Microsoft YaHei', 'STHeiti']
@@ -24,7 +25,7 @@ region_color_map = {
 # 資料夾設定
 correlation_folder = "lag_corre_month+region"
 case_pm25_folder = "就診千分比對pm2.5(五群)"
-output_plot_folder = "scatter_plots_region_shift+0&color"
+output_plot_folder = "scatter_plots_region_shift"
 os.makedirs(output_plot_folder, exist_ok=True)
 
 # 處理每個疾病的相關性 CSV
@@ -90,14 +91,14 @@ for filename in os.listdir(correlation_folder):
         r2_3 = model3.fit(X, y).score(X, y)
 
         # 繪製散布圖
-        plt.figure(figsize=(6, 5))
+        plt.figure(figsize=(7, 6))
         plt.scatter(X, y, alpha=0.6, c=colors)
         plt.xlabel("PM2.5")
         plt.ylabel("就診人數千分比")
         plt.title(f"{disease_name}：lag={lag} 散布圖")
 
-        # 加上文字說明
-        text = (
+        # 固定左上角顯示統計指標
+        stats_text = (
             f"Pearson: {pearson:.3f}\n"
             f"Spearman: {spearman:.3f}\n"
             f"Kendall: {kendall:.3f}\n"
@@ -105,22 +106,35 @@ for filename in os.listdir(correlation_folder):
             f"R² (2次): {r2_2:.3f}\n"
             f"R² (3次): {r2_3:.3f}"
         )
-
         plt.text(
-            0.05, 0.95,
-            text,
+            0.02, 0.98,
+            stats_text,
             transform=plt.gca().transAxes,
             verticalalignment='top',
+            horizontalalignment='left',
             fontsize=10,
-            bbox=dict(boxstyle="round", facecolor="white", alpha=0.6)
+            bbox=dict(boxstyle="round", facecolor="white", alpha=0.7)
         )
 
-        # 加上圖例
+        # 每個群集畫自己的線性回歸線
+        for region, color in region_color_map.items():
+            sub = merged[merged["region_copy"] == region]
+            if len(sub) < 2:
+                continue
+            X_sub = sub["PM2.5"].values.reshape(-1, 1)
+            y_sub = sub["case_per_capita(‰)"].values
+            reg = LinearRegression().fit(X_sub, y_sub)
+            x_range = np.linspace(X_sub.min(), X_sub.max(), 100).reshape(-1, 1)
+            y_pred = reg.predict(x_range)
+            plt.plot(x_range, y_pred, color=color, label=region, linewidth=1.8)
+
+        # 圖例固定在右下角
         legend_elements = [
-            Line2D([0], [0], marker='o', color='w', label=region, markerfacecolor=color, markersize=8)
+            Line2D([0], [0], marker='o', color='w', label=region,
+                   markerfacecolor=color, markersize=8)
             for region, color in region_color_map.items()
         ]
-        plt.legend(handles=legend_elements, title="區域")
+        plt.legend(handles=legend_elements, title="區域", loc='lower right', frameon=True)
 
         plt.tight_layout()
 
@@ -129,4 +143,4 @@ for filename in os.listdir(correlation_folder):
         plt.savefig(os.path.join(output_plot_folder, plot_filename), dpi=300)
         plt.close()
 
-print("✅ 所有疾病的相關性散布圖已完成（含顏色與群集圖例）")
+print("✅ 所有疾病的相關性散布圖已完成（含顏色、圖例與群集回歸線）")
