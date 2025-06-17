@@ -1,11 +1,7 @@
-# Re-import necessary libraries after kernel reset
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.feature_selection import mutual_info_regression
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.pipeline import make_pipeline
 from matplotlib.lines import Line2D
 import numpy as np
 
@@ -55,7 +51,6 @@ for filename in os.listdir(correlation_folder):
         lag = int(row["平移量(月數)"])
         pearson = row["Pearson 係數"]
         spearman = row["Spearman 係數"]
-        kendall = row["Kendall Tau"]
 
         df_shifted = df.copy()
         df_shifted["new_month"] = df_shifted["month"] + lag
@@ -79,32 +74,18 @@ for filename in os.listdir(correlation_folder):
         y = merged["case_per_capita(‰)"].values
         colors = merged["region_copy"].map(region_color_map)
 
-        # Mutual Information
-        mi = mutual_info_regression(X, y, random_state=0)[0]
-
-        # R² 2nd degree
-        model2 = make_pipeline(PolynomialFeatures(2), LinearRegression())
-        r2_2 = model2.fit(X, y).score(X, y)
-
-        # R² 3rd degree
-        model3 = make_pipeline(PolynomialFeatures(3), LinearRegression())
-        r2_3 = model3.fit(X, y).score(X, y)
-
         # 繪製散布圖
         plt.figure(figsize=(7, 6))
         plt.scatter(X, y, alpha=0.6, c=colors)
-        plt.xlabel("PM2.5")
-        plt.ylabel("就診人數千分比")
+        plt.xlabel("PM2.5(μg/m³)")
+        plt.ylabel("就診人數(‰)")
         plt.title(f"{disease_name}：lag={lag} 散布圖")
 
-        # 固定左上角顯示統計指標
+        # 左上角文字顯示 Spearman 與 Pearson
         stats_text = (
+            f"          總體\n"
             f"Pearson: {pearson:.3f}\n"
-            f"Spearman: {spearman:.3f}\n"
-            f"Kendall: {kendall:.3f}\n"
-            f"Mutual Info: {mi:.3f}\n"
-            f"R² (2次): {r2_2:.3f}\n"
-            f"R² (3次): {r2_3:.3f}"
+            f"Spearman: {spearman:.3f}"
         )
         plt.text(
             0.02, 0.98,
@@ -116,7 +97,8 @@ for filename in os.listdir(correlation_folder):
             bbox=dict(boxstyle="round", facecolor="white", alpha=0.7)
         )
 
-        # 每個群集畫自己的線性回歸線
+        # 每個群集畫自己的線性回歸線，並記錄斜率
+        legend_elements = []
         for region, color in region_color_map.items():
             sub = merged[merged["region_copy"] == region]
             if len(sub) < 2:
@@ -124,16 +106,19 @@ for filename in os.listdir(correlation_folder):
             X_sub = sub["PM2.5"].values.reshape(-1, 1)
             y_sub = sub["case_per_capita(‰)"].values
             reg = LinearRegression().fit(X_sub, y_sub)
+            slope = reg.coef_[0]
             x_range = np.linspace(X_sub.min(), X_sub.max(), 100).reshape(-1, 1)
             y_pred = reg.predict(x_range)
-            plt.plot(x_range, y_pred, color=color, label=region, linewidth=1.8)
+            plt.plot(x_range, y_pred, color=color, linewidth=1.8)
+            
+            # 將斜率數值直接加到圖例標籤中
+            label_with_slope = f"{region} (m={slope:.4f})"
+            legend_elements.append(
+                Line2D([0], [0], marker='o', color='w', label=label_with_slope,
+                    markerfacecolor=color, markersize=8)
+            )
 
-        # 圖例固定在右下角
-        legend_elements = [
-            Line2D([0], [0], marker='o', color='w', label=region,
-                   markerfacecolor=color, markersize=8)
-            for region, color in region_color_map.items()
-        ]
+        # 圖例顯示在右下角，含斜率
         plt.legend(handles=legend_elements, title="區域", loc='lower right', frameon=True)
 
         plt.tight_layout()
@@ -143,4 +128,6 @@ for filename in os.listdir(correlation_folder):
         plt.savefig(os.path.join(output_plot_folder, plot_filename), dpi=300)
         plt.close()
 
-print("✅ 所有疾病的相關性散布圖已完成（含顏色、圖例與群集回歸線）")
+        print(f"{disease_name} rank {rank} lag {lag}繪製完成")
+
+print("✅ 所有疾病的相關性散布圖已完成（含顏色、圖例與群集回歸斜率）")
